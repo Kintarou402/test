@@ -1,0 +1,42 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VJ Live 20</title><style>html,body{margin:0;background:#000;color:#fff;font-family:system-ui}canvas{position:fixed;inset:0;width:100vw;height:100vh;object-fit:contain}#panel{position:fixed;top:12px;left:12px;width:min(340px,calc(100vw - 48px));max-height:85vh;overflow:auto;background:#181818e8;border:1px solid #777;border-radius:12px;padding:14px;z-index:2}button,select,input{font:inherit}button,select{background:#333;color:#fff;border:1px solid #888;border-radius:7px;padding:8px;margin:3px}select{width:100%}input[type=range]{width:100%}.row{display:flex;align-items:center;justify-content:space-between;gap:5px}small{color:#bbb}#show{position:fixed;bottom:8px;right:8px;z-index:3;background:#2229;font-size:12px}body.hide #panel,body.hide #show{display:none}</style></head><body><canvas id="screen" width="1920" height="1080"></canvas><section id="panel"><b>VJ LIVE / 20 GENRES</b><div class="row"><label for="bpm">BPM</label><strong id="readout">120</strong></div><input id="bpm" type="range" min="40" max="240" value="120"><div class="row"><button id="minus">−1</button><button id="tap">TAP BPM (T)</button><button id="plus">+1</button></div><label for="genre">ジャンル</label><select id="genre"></select><div class="row"><button id="play">停止 (Space)</button><button id="next">次の模様 (N)</button><button id="hide">映像のみ (H)</button></div><small>0: 全ジャンルランダム / 1〜9: ジャンル指定 / F: 全画面 / H: パネル切替。全画面解除はEsc。<br>ブラウザでの60fpsは端末性能によって変わります。</small></section><button id="show">H: Controls</button><script>
+'use strict';
+const C=document.querySelector('canvas'),g=C.getContext('2d',{alpha:false}),W=1920,H=1080,TAU=Math.PI*2;
+const names=['同心円','幾何学','波線','グリッド','放射線','スパイラル','パーティクルトンネル','グリッチ','ハーフトーン','ボロノイ','カレイドスコープ','ワイヤーフレーム','フラクタル','ノイズ','走査線','リキッド','ドットマトリクス','ストライプ','キューブ','リサージュ'];
+const select=document.querySelector('#genre');select.add(new Option('ランダム（全20種類）','-1'));names.forEach((s,i)=>select.add(new Option(`${String(i+1).padStart(2,'0')} ${s}`,i)));
+let bpm=120,active=0,playing=true,beat=0,elapsed=0,last=performance.now(),taps=[],seed=1;
+const R=(a,b)=>a+Math.random()*(b-a),rand=n=>Math.floor(Math.random()*n),fg='#fff';
+function setBpm(v){bpm=Math.max(40,Math.min(240,Math.round(v)));document.querySelector('#bpm').value=bpm;document.querySelector('#readout').textContent=bpm}
+function choose(){active=select.value==='-1'?rand(20):Number(select.value);seed=Math.random()*999;beat=0}
+function tap(){let t=performance.now();taps=taps.filter(v=>t-v<2500);taps.push(t);if(taps.length>6)taps.shift();if(taps.length>=3){let d=(taps.at(-1)-taps[0])/(taps.length-1);if(d>0)setBpm(60000/d)}}
+function stroke(x1,y1,x2,y2,width=3){g.lineWidth=width;g.beginPath();g.moveTo(x1,y1);g.lineTo(x2,y2);g.stroke()}
+function circle(x,y,r,fill=false){g.beginPath();g.arc(x,y,Math.max(0,r),0,TAU);fill?g.fill():g.stroke()}
+function polygon(points,fill=true){g.beginPath();points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();fill?g.fill():g.stroke()}
+function hash(n){let x=Math.sin(n*127.1+seed*21.3)*43758.5453;return x-Math.floor(x)}
+function draw(t){g.fillStyle='#000';g.fillRect(0,0,W,H);g.strokeStyle=fg;g.fillStyle=fg;let cx=W/2,cy=H/2,phase=t*.001,off=seed*11;
+switch(active){
+case 0:for(let i=0;i<55;i++)circle(cx+Math.sin(off)*160,cy+Math.cos(off)*100,(i*24+phase*130)%1350,false);g.lineWidth=5;break;
+case 1:for(let i=0;i<95;i++){let x=hash(i)*W,y=hash(i+300)*H,s=20+hash(i+600)*220,a=phase*(hash(i+100)-.5);g.save();g.translate(x+Math.sin(phase+i)*35,y);g.rotate(a);if(i%3===0)circle(0,0,s/2,i%2===0);else g.fillRect(-s/2,-s/2,s,s*(.2+hash(i+900)*.8));g.restore()}break;
+case 2:for(let j=0;j<55;j++){g.beginPath();for(let x=0;x<=W;x+=15){let y=j*24-90+Math.sin(x*.007+phase*2+j*.14)*75;x?g.lineTo(x,y):g.moveTo(x,y)}g.lineWidth=3;g.stroke()}break;
+case 3:for(let y=0;y<H;y+=80)for(let x=0;x<W;x+=80){let v=(x/80+y/80+Math.floor(phase*2))%2;if(v<1)g.fillRect(x,y,80,80)}break;
+case 4:for(let i=0;i<100;i++){let a=i*TAU/100+phase*.45;stroke(cx,cy,cx+Math.cos(a)*1800,cy+Math.sin(a)*1800,2+i%4)}break;
+case 5:g.lineWidth=6;g.beginPath();for(let i=0;i<7000;i++){let a=i*.055+phase*.8,r=i*.18;let x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;i?g.lineTo(x,y):g.moveTo(x,y)}g.stroke();break;
+case 6:for(let i=0;i<240;i++){let z=((hash(i+300)*3-phase*.8)%3+3)%3+.05,x=(hash(i)-.5)*W/z+cx,y=(hash(i+100)-.5)*H/z+cy,s=3+18/z;circle(x,y,s,true)}break;
+case 7:for(let i=0;i<70;i++){let y=hash(i+10)*H,h=2+hash(i+200)*45,x=hash(i+300)*W,w=100+hash(i+500)*1000;g.fillRect((x+phase*150*(i%2?1:-1)+W*4)%W,y,w,h)}break;
+case 8:for(let y=25;y<H;y+=35)for(let x=25;x<W;x+=35){let r=2+15*(.5+.5*Math.sin(x*.014+y*.013-phase*3));circle(x,y,r,true)}break;
+case 9:{let sites=Array.from({length:22},(_,i)=>[hash(i)*W+Math.sin(phase+i)*60,hash(i+80)*H+Math.cos(phase+i)*60]);for(let y=0;y<H;y+=24)for(let x=0;x<W;x+=24){let nearest=0,best=Infinity;sites.forEach(([sx,sy],i)=>{let d=(x-sx)**2+(y-sy)**2;if(d<best){best=d;nearest=i}});if(nearest%2===0)g.fillRect(x,y,22,22)}}break;
+case 10:for(let j=0;j<12;j++){g.save();g.translate(cx,cy);g.rotate(j*TAU/12);for(let i=0;i<45;i++){let x=hash(i)*850,y=(hash(i+70)-.5)*130;circle(x+Math.sin(phase+i)*30,y,4+hash(i+100)*25,i%2===0)}g.restore()}break;
+case 11:for(let z=1;z<35;z++){g.beginPath();for(let x=0;x<W;x+=30){let y=H*.65+(z-15)*18+Math.sin(x*.008+phase*2+z*.2)*z*5;x?g.lineTo(x,y):g.moveTo(x,y)}g.lineWidth=2;g.stroke()}break;
+case 12:for(let i=0;i<8;i++){let s=900*Math.pow(.66,i),a=phase*.5+i*.35;g.save();g.translate(cx,cy);g.rotate(a);g.strokeRect(-s/2,-s/2,s,s);g.restore()}break;
+case 13:for(let y=0;y<H;y+=9)for(let x=0;x<W;x+=9)if(hash(x*2+y*5+Math.floor(phase*12)*100)>.52)g.fillRect(x,y,8,8);break;
+case 14:for(let y=0;y<H;y+=8)stroke(0,y,W,y,1+(Math.sin(y*.08+phase*5)+1)*2);break;
+case 15:for(let i=0;i<35;i++){let x=i*60,yy=cy+Math.sin(i*.3+phase*2)*160;circle(x,yy,45+Math.sin(i+phase*3)*30,true)}break;
+case 16:for(let y=20;y<H;y+=48)for(let x=20;x<W;x+=48)if(hash(x*3+y*5)>.2)g.fillRect(x,y,5+25*(.5+.5*Math.sin(phase*4+x*.02)),5+25*(.5+.5*Math.cos(phase*4+y*.02)));break;
+case 17:for(let i=0;i<65;i++){let x=i*36+Math.sin(phase*2+i*.3)*35;stroke(x,-100,x+Math.sin(phase+i)*180,H+100,4+i%5)}break;
+case 18:for(let i=0;i<30;i++){let x=hash(i)*W,y=hash(i+20)*H,s=25+hash(i+40)*130;g.save();g.translate(x,y);g.rotate(phase*.4+i);polygon([[-s,-s/2],[0,-s],[s,-s/2],[0,0]],false);polygon([[-s,-s/2],[0,0],[0,s],[ -s,s/2]],false);polygon([[0,0],[s,-s/2],[s,s/2],[0,s]],false);g.restore()}break;
+case 19:g.lineWidth=5;g.beginPath();for(let i=0;i<=2000;i++){let p=i/2000*TAU,x=cx+650*Math.sin(3*p+phase),y=cy+400*Math.sin(4*p+phase*.73);i?g.lineTo(x,y):g.moveTo(x,y)}g.stroke();break;
+}}
+function frame(now){let dt=Math.min(.1,(now-last)/1000);last=now;if(playing){elapsed+=dt;beat+=dt;let interval=60/bpm;if(beat>=interval){beat%=interval;choose()}}draw(elapsed*1000);requestAnimationFrame(frame)}
+document.querySelector('#bpm').oninput=e=>setBpm(e.target.value);document.querySelector('#minus').onclick=()=>setBpm(bpm-1);document.querySelector('#plus').onclick=()=>setBpm(bpm+1);document.querySelector('#tap').onclick=tap;document.querySelector('#genre').onchange=choose;document.querySelector('#next').onclick=choose;document.querySelector('#play').onclick=()=>{playing=!playing;document.querySelector('#play').textContent=playing?'停止 (Space)':'再生 (Space)'};function hide(){document.body.classList.toggle('hide')}document.querySelector('#hide').onclick=hide;document.querySelector('#show').onclick=hide;
+window.addEventListener('keydown',e=>{if(['INPUT','SELECT'].includes(document.activeElement.tagName))return;let k=e.key.toLowerCase();if(k==='h')hide();else if(k==='t')tap();else if(k==='n')choose();else if(k===' '){e.preventDefault();document.querySelector('#play').click()}else if(k==='arrowleft')setBpm(bpm-1);else if(k==='arrowright')setBpm(bpm+1);else if(k==='f'){if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen?.()}else if(k==='0'){select.value='-1';choose()}else if(k>='1'&&k<='9'){select.value=String(Number(k)-1);choose()}});
+choose();requestAnimationFrame(frame);
+</script></body></html>
